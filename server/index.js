@@ -2,23 +2,23 @@ import express, { query } from "express";
 import dotenv from "dotenv";
 import pg from "pg";
 const { Pool } = pg;
-import cors from 'cors';
+import cors from "cors";
 
+import { encrypt, decrypt } from "./EncryptionHandler.js";
 
 const app = express();
 app.use(express.json());
-app.use(cors())
-
+app.use(cors());
 
 dotenv.config();
 const PORT = process.env.PORT;
 
 const pool = new Pool({
-	host: "localhost",
-	user: "postgres",
+	host: process.env.DB_HOST,
+	user: process.env.DB_USER,
 	port: 5432,
-	password: "tiger",
-	database: "mern_vault",
+	password: process.env.DB_PASS,
+	database: process.env.DB_NAME,
 });
 
 pool.query("SELECT NOW()", (err, res) => {
@@ -41,15 +41,20 @@ pool.query("SELECT NOW()", (err, res) => {
 
 app.post("/add-password", async (req, res) => {
 	const { password, title } = req.body;
-    try {
-        const result = await pool.query(`INSERT INTO public.passwords (password, website) VALUES ('${password}', '${title}');`)
-        // res.json(result.rows);
-        console.log('VALUES INSERTED');
-    } catch (error) {
-        console.error("Error executing query", error.message);
+
+    const hashedPassword = encrypt(password)
+
+	try {
+		const result = await pool.query(
+			`INSERT INTO public.passwords (password, website, iv) VALUES ('${hashedPassword.password}', '${title}', '${hashedPassword.iv}');`
+		);
+		// res.json(result.rows);
+		console.log("VALUES INSERTED");
+	} catch (error) {
+		console.error("Error executing query", error.message);
 		res.status(500).json({ error: "Internal server error" });
-    }
-});     
+	}
+});
 
 app.get("/", (req, res) => {
 	res.send("hello dev");
